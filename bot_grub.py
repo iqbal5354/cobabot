@@ -2,7 +2,10 @@ import os
 import sys
 import asyncio
 from telethon import TelegramClient, events
-from telethon.tl.functions.channels import CreateChannelRequest
+from telethon.sessions import StringSession
+from telethon.tl.functions.channels import CreateChannelRequest, UpdateUsernameRequest
+from telethon.tl.functions.messages import CreateChatRequest, ExportChatInviteRequest
+
 
 # === Load dari environment (.env atau Railway Variables) ===
 api_id = int(os.getenv("API_ID", "0"))
@@ -114,3 +117,4 @@ async def main():
 if __name__ == "__main__":
     with client:
         client.loop.run_until_complete(main())
+
