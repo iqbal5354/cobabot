@@ -1,16 +1,17 @@
 import os
 import sys
-from telethon import TelegramClient, events
-from telethon.tl.functions.channels import CreateChannelRequest, ExportChatInviteRequest, UpdateUsernameRequest
-from telethon.tl.functions.messages import CreateChatRequest
 import asyncio
+from telethon import TelegramClient, events
+from telethon.sessions import StringSession
+from telethon.tl.functions.channels import CreateChannelRequest, UpdateUsernameRequest
+from telethon.tl.functions.messages import CreateChatRequest, ExportChatInviteRequest
 
-# Ambil ENV
+# 🔹 Ambil ENV
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 SESSION = os.getenv("SESSION")
 
-# OWNER_ID opsional
+# 🔹 OWNER_ID opsional
 OWNER_ID = os.getenv("OWNER_ID")
 if OWNER_ID and OWNER_ID.isdigit():
     OWNER_ID = int(OWNER_ID)
@@ -19,7 +20,7 @@ else:
 
 client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
 
-# Notif saat bot berhasil jalan
+# 🔹 Notif saat bot berhasil jalan
 async def main():
     if OWNER_ID:
         try:
@@ -27,7 +28,7 @@ async def main():
         except Exception:
             pass
 
-# Command .buat
+# 🔹 Command .buat
 @client.on(events.NewMessage(pattern=r"\.buat (b|g|c) (\d+) (.+)"))
 async def handler_buat(event):
     jenis = event.pattern_match.group(1)
@@ -72,14 +73,14 @@ async def handler_buat(event):
     except Exception as e:
         await msg.edit(f"❌ Error: {str(e)}")
 
-# Command .id
+# 🔹 Command .id
 @client.on(events.NewMessage(pattern=r"\.id"))
 async def handler_id(event):
     await event.delete()
     chat = await event.get_chat()
     await event.respond(f"🆔 Chat ID: `{chat.id}`")
 
-# Command .restart
+# 🔹 Command .restart
 @client.on(events.NewMessage(pattern=r"\.restart"))
 async def handler_restart(event):
     await event.delete()
