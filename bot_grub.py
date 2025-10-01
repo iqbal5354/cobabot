@@ -4,93 +4,82 @@ import asyncio
 import random
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
-from telethon.errors import FloodWaitError
 from telethon.tl.functions.channels import CreateChannelRequest
-from telethon.tl.functions.messages import ExportChatInviteRequest
 
-# 🔹 Ambil ENV
-API_ID = int(os.getenv("API_ID"))
-API_HASH = os.getenv("API_HASH")
-SESSION = os.getenv("SESSION")
-OWNER_ID = os.getenv("OWNER_ID")
-if OWNER_ID and OWNER_ID.isdigit():
-    OWNER_ID = int(OWNER_ID)
-else:
-    OWNER_ID = None
+# Import dari file animasi & pesan
+from animasi.animasi import tampilkan_progress
+from pesan.pesan import get_random_pesan
 
-# 🔹 Buat client
-client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
+# Ambil API dari ENV
+api_id = int(os.getenv("API_ID"))
+api_hash = os.getenv("API_HASH")
+session_string = os.getenv("SESSION")  # string session biar ga input manual
 
-# 🔹 Variabel status spam
-spam_status = {"kena": False, "sisa": 0}
+# 🔹 OWNER ID langsung fix (tidak perlu ENV)
+OWNER_ID = -1002271009889  
 
-# 🔹 Pesan acak anti spam
-pesan_random = [
-    "🎉 Grup berhasil dibuat!",
-    "✅ Grup sudah siap digunakan.",
-    "🔥 Selesai, grup kamu aktif!",
-    "📢 Grup berhasil aktif sekarang."
-]
+client = TelegramClient(StringSession(session_string), api_id, api_hash)
 
-# 🔹 Animasi progress bar
-async def progress_anim(event, total):
-    for i in range(1, total + 1):
-        bar = "▓" * i + "░" * (total - i)
-        text = f"⏳ Membuat grup ...\n[{bar}] {i}/{total}\nEstimasi: {total - i} detik lagi"
-        await event.edit(text)
-        await asyncio.sleep(1)
 
-# 🔹 Command cek status spam
-@client.on(events.NewMessage(pattern=r"\.cek"))
-async def cek_status(event):
-    if spam_status["kena"]:
-        await event.reply(f"🚨 Saat ini kena spamwait!\n⏳ Tunggu {spam_status['sisa']} detik lagi.")
-    else:
-        await event.reply("✅ Aman, bot bisa jalan tanpa spamwait.")
-
-# 🔹 Command buat grup
+# 🔹 Command: buat grup otomatis
 @client.on(events.NewMessage(pattern=r"\.buat g(?: (\d+))? (.+)"))
 async def handler_buat(event):
-    if OWNER_ID and event.sender_id != OWNER_ID:
-        return await event.reply("❌ Kamu tidak punya akses.")
+    if event.sender_id != OWNER_ID:
+        return
 
-    try:
-        jumlah = int(event.pattern_match.group(1) or 1)
-        nama = event.pattern_match.group(2)
+    jumlah = int(event.pattern_match.group(1)) if event.pattern_match.group(1) else 1
+    nama = event.pattern_match.group(2)
 
-        await event.reply(f"⏳ Proses membuat {jumlah} grup dengan nama: **{nama}**")
+    await event.delete()
+    msg = await event.respond("⏳ Membuat grup...")
 
-        for i in range(1, jumlah + 1):
-            # 🔹 Animasi progress
-            anim_msg = await event.respond("⏳ Membuat grup ...")
-            await progress_anim(anim_msg, 10)
+    hasil = []
+    for i in range(jumlah):
+        try:
+            grup = await client(CreateChannelRequest(
+                title=f"{nama} {i+1}",
+                about="Grub by @WARUNGBULLOVE",
+                megagroup=True
+            ))
+            chat_id = grup.chats[0].id
 
-            # 🔹 Bikin grup
+            # bikin link undangan
             try:
-                result = await client(CreateChannelRequest(
-                    title=f"{nama} {i}",
-                    about="Grup otomatis by bot",
-                    megagroup=True
-                ))
-                chat = result.chats[0]
+                link = await client.export_chat_invite_link(chat_id)
+            except Exception as e:
+                link = f"(gagal ambil link: {e})"
 
-                # 🔹 Ambil link grup
-                invite = await client(ExportChatInviteRequest(chat.id))
+            # tampilkan progress
+            await tampilkan_progress(msg, jumlah, i)
 
-                # 🔹 Kirim pesan random biar anti spam
-                msg = random.choice(pesan_random)
-                await event.respond(f"{msg}\n\n🔗 {invite.link}")
+            # kirim pesan random (4 pesan)
+            for _ in range(4):
+                await client.send_message(chat_id, get_random_pesan())
+                await asyncio.sleep(1)
 
-            except FloodWaitError as e:
-                spam_status["kena"] = True
-                spam_status["sisa"] = e.seconds
-                await event.respond(f"🚨 Kena spamwait {e.seconds} detik, stop dulu.")
-                break
+            hasil.append(f"✅ [{nama} {i+1}]({link})")
 
-    except Exception as e:
-        await event.reply(f"⚠️ Error: {str(e)}")
+        except Exception as e:
+            hasil.append(f"❌ Gagal buat {nama} {i+1} → {e}")
 
-# 🔹 Jalankan client
-print("✅ Bot jalan...")
+    await msg.edit("🎉 Grup berhasil dibuat:\n\n" + "\n".join(hasil), link_preview=False)
+
+
+# 🔹 Command: cek id
+@client.on(events.NewMessage(pattern=r"\.id"))
+async def handler_id(event):
+    await event.reply(f"🆔 Chat ID: `{event.chat_id}`")
+
+
+# 🔹 Command: restart bot
+@client.on(events.NewMessage(pattern=r"\.restart"))
+async def handler_restart(event):
+    if event.sender_id != OWNER_ID:
+        return
+    await event.respond("♻️ Restarting bot...")
+    os.execv(sys.executable, ['python'] + sys.argv)
+
+
+print("🚀 Bot berjalan...")
 client.start()
 client.run_until_disconnected()
