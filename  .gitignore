@@ -1,0 +1,17 @@
+# Jangan upload file environment (rahasia)
+.env
+
+# Cache Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+.venv/
+env/
+venv/
+
+# File sistem
+.DS_Store
+Thumbs.db
