@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
 from telethon.tl.functions.channels import CreateChannelRequest
@@ -85,21 +86,27 @@ async def handler_restart(event):
 
 # 🔹 Command .buat g → buat grup otomatis
 # 🔹 Command .buat g → buat grup otomatis
-@client.on(events.NewMessage(pattern=r"\.buat g (\d+) (.+)"))
+
+# 🔹 Command .buat g → bisa pakai angka atau langsung nama (default 1)
+@client.on(events.NewMessage(pattern=r"\.buat g(?: (\d+))? (.+)"))
 async def handler_buat(event):
     if OWNER_ID and event.sender_id != OWNER_ID:
         return
 
-    jumlah = int(event.pattern_match.group(1))
-    nama = event.pattern_match.group(2)
-
     await event.delete()
+
+    # parsing input
+    match = re.match(r"\.buat g(?: (\d+))? (.+)", event.raw_text)
+    jumlah = int(match.group(1)) if match.group(1) else 1
+    nama = match.group(2)
+
     msg = await event.respond("⏳ Mohon tunggu sebentar, sedang membuat grup...")
 
     hasil = []
     for i in range(jumlah):
+        nama_group = f"{nama} {i+1}" if jumlah > 1 else nama
         grup = await client(CreateChannelRequest(
-            title=f"{nama} {i+1}",
+            title=nama_group,
             about="GRUB BY @WARUNGBULLOVE",
             megagroup=True
         ))
@@ -111,14 +118,14 @@ async def handler_buat(event):
         except Exception as e:
             link = f"(gagal ambil link: {e})"
 
-        # kirim pesan otomatis ke grup
+        # kirim pesan otomatis
         await client.send_message(chat_id, "👋 Hallo, grup berhasil dibuat!")
         await client.send_message(chat_id, pesan1)
         await client.send_message(chat_id, pesan2)
         await client.send_message(chat_id, pesan3)
 
-        # tambahkan ke hasil, format nama + link
-        hasil.append(f"✅ [{nama} {i+1}]({link})")
+        # hasil akhir pakai nama + link
+        hasil.append(f"✅ [{nama_group}]({link})")
 
     await msg.edit("🎉 Grup berhasil dibuat:\n\n" + "\n".join(hasil), link_preview=False)
 
@@ -136,5 +143,6 @@ async def main():
 if __name__ == "__main__":
     with client:
         client.loop.run_until_complete(main())
+
 
 
