@@ -29,7 +29,7 @@ async def main():
             pass
 
 # 🔹 Command .buat
-@client.on(events.NewMessage(pattern=r"\.buat (b|g|c) (\d+) (.+)"))
+@client.on(events.NewMessage(pattern=r"\.buatt (b|g|c) (\d+) (.+)"))
 async def handler_buat(event):
     jenis = event.pattern_match.group(1)
     jumlah = int(event.pattern_match.group(2))
@@ -59,7 +59,7 @@ async def handler_buat(event):
                 r = await client(
                     CreateChannelRequest(
                         title=nama_group,
-                        about="Grup/Channel otomatis dibuat oleh bot",
+                        about="GRUB BY @WARUNGBULLOVE",
                         megagroup=(jenis == "g"),
                     )
                 )
@@ -207,6 +207,7 @@ if __name__ == "__main__":
     with client:
         client.loop.run_until_complete(main())
         client.run_until_disconnected()
+
 
 
 
