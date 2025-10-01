@@ -75,53 +75,106 @@ async def handler_buat(event):
 
 # 🔹 Command .id
 # 🔹 Command .buat
-@client.on(events.NewMessage(pattern=r"\.buatt (b|g|c) (\d+) (.+)"))
-async def handler_buat(event):
-    jenis = event.pattern_match.group(1)
-    jumlah = int(event.pattern_match.group(2))
-    nama = event.pattern_match.group(3)
 
-    # Hapus command user
+# Pesan otomatis untuk grup baru
+pesan1 = """FORMAT TRANSAKSI
+
+┏━━━━━━━━━━━━━━━━
+┣ Jual Beli Apa  : 
+┣ Penjual Siapa  : 
+┣ Pembeli Siapa  :
+┣ Harga Berapa   :
+┗━━━━━━━━━━━━━━━━ 
+PENTING!!!
+☑️ Harap pasikan Transaksi tidak ada miskom buyer dan seller. 
+☑️ Jika Transaksi Cancel Fee tetap Terpotong, jika tdk mau Terpotong Silahkan cari penjual lain.
+☑️ Jadikan Saya Sebagai admin grub ini
+✅ Janggn ganti judul MC."""
+
+pesan2 = """FORMAT TRANSAKSI
+
+┏━━━━━━━━━━━━━━━━
+┣ Jual Beli Apa  : 
+┣ Penjual Siapa  : 
+┣ Pembeli Siapa  :
+┣ Harga Berapa   :
+┗━━━━━━━━━━━━━━━━ 
+PENTING!!!
+☑️ Harap pasikan Transaksi tidak ada miskom buyer dan seller. 
+☑️ Jika Transaksi Cancel Fee tetap Terpotong, jika tdk mau Terpotong Silahkan cari penjual lain.
+☑️ Jadikan Saya Sebagai admin grub ini
+✅ Janggn ganti judul MC."""
+
+pesan3 = """:: Uang sudah masuk di saya. Silahkan kalian serah terima data ::
+
+━━━━PENTING!!━━━━
+⚠️Harap Tanyakan dulu masalah Garansi.
+⚠️Jgn coba2 ada drama jika tidak mau saya mintain ident via VC. Karena drama=ripper.
+⚠️Jangan Berikan Hal2 yg rawan seperti OTP tele WA OTP email di luar transaksi
+⚠️jika Pembeli tidak ada kabar selama 8 jam maka dana akan di cairkan dan jika penjual tidak ada kabar selama 5 jam uang di transfer balik ke pembeli
+━━━━━━━━━━━━━"""
+
+# === COMMAND ===
+
+# Cek ID
+# 🔹 Command .id
+@client.on(events.NewMessage(pattern=r"\.id"))
+async def handler_id(event):
+    chat = await event.get_chat()
+
+    # hapus command user
     await event.delete()
 
-    # Kirim pesan tunggu
-    msg = await event.respond("⏳ Mohon tunggu sebentar, sedang membuat group...")
+    # paksa format -100 untuk group / channel
+    chat_id = chat.id
+    if not str(chat_id).startswith("-100") and (event.is_group or event.is_channel):
+        chat_id = f"-100{abs(chat_id)}"
 
-    try:
-        hasil = []
-        for i in range(1, jumlah + 1):
-            nama_group = f"{nama} {i}" if jumlah > 1 else nama
+    # bikin pesan dummy lalu edit jadi hasil
+    msg = await event.respond("🔍 Mencari ID chat...")
+    await msg.edit(f"🆔 Chat ID: `{chat_id}`")
 
-            if jenis == "b":
-                r = await client(
-                    CreateChatRequest(
-                        users=[await client.get_me()],
-                        title=nama_group,
-                    )
-                )
-                chat_id = r.chats[0].id
-                link = (await client(ExportChatInviteRequest(chat_id))).link
-            else:
-                r = await client(
-                    CreateChannelRequest(
-                        title=nama_group,
-                        about="Grup/Channel otomatis dibuat oleh bot",
-                        megagroup=(jenis == "g"),
-                    )
-                )
-                chat_id = r.chats[0].id
-                link = (await client(ExportChatInviteRequest(chat_id))).link
 
-            # kirim pesan ke grup yang baru dibuat
-            await client.send_message(chat_id, "👋 Hallo, grup berhasil dibuat!")
+# Buat grup
+@client.on(events.NewMessage(pattern=r"\.buat g (\d+) (.+)"))
+async def handler_buat(event):
+    if event.sender_id != owner_id:
+        return
+    await event.delete()
+    jumlah = int(event.pattern_match.group(1))
+    nama = event.pattern_match.group(2)
 
-            hasil.append(f"✅ [{nama_group}]({link})")
+    await event.respond("⏳ Mohon tunggu sebentar, sedang membuat grup...")
 
-        await msg.edit("🎉 Grup/Channel berhasil dibuat:\n\n" + "\n".join(hasil), link_preview=False)
+    hasil = []
+    for i in range(jumlah):
+        # Buat channel dengan CreateChannelRequest
+        grup = await client(CreateChannelRequest(
+            title=f"{nama} {i+1}",
+            about="GRUB BY @WARUNGBULLOVE",
+            megagroup=True
+        ))
+        chat_id = grup.chats[0].id
 
-    except Exception as e:
-        await msg.edit(f"❌ Error: {str(e)}")
+        # Kirim pesan otomatis ke grup
+        await client.send_message(chat_id, "👋 Hallo, grup berhasil dibuat!")
+        await client.send_message(chat_id, pesan1)
+        await client.send_message(chat_id, pesan2)
+        await client.send_message(chat_id, pesan3)
 
+        hasil.append(f"{i+1}. Grup **{nama} {i+1}** → `{chat_id}`")
+
+    # Edit balasan jadi daftar grup
+    await event.respond("✅ Grup berhasil dibuat:\n\n" + "\n".join(hasil))
+
+
+async def main():
+    print("🤖 Bot berjalan...")
+    await client.run_until_disconnected()
+
+if __name__ == "__main__":
+    with client:
+        client.loop.run_until_complete(main())
 # 🔹 Command .id
 @client.on(events.NewMessage(pattern=r"\.id"))
 async def handler_id(event):
@@ -154,5 +207,6 @@ if __name__ == "__main__":
     with client:
         client.loop.run_until_complete(main())
         client.run_until_disconnected()
+
 
 
