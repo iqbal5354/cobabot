@@ -78,6 +78,18 @@ PENTING!!!
     "📧 Email/akun hanya diberikan lewat jalur aman.",
     "📲 Semua komunikasi wajib tercatat di grup."
 ]
+pesan_startup = [
+    "🤖 Bot berhasil online! Siap digunakan 🚀",
+    "✅ Bot aktif sekarang, semua sistem berjalan normal.",
+    "📡 Koneksi ke server berhasil, bot sudah hidup!",
+    "⚡ Bot berjalan lancar, selamat menggunakan!",
+    "🔔 Bot sudah siap melayani perintah Anda!",
+    "🚀 Startup sukses, bot siap dipakai.",
+    "💡 Bot online. Jangan lupa gunakan format transaksi.",
+    "📢 Bot berhasil aktif. Silakan gunakan dengan bijak.",
+    "✅ Semua sistem OK. Bot sekarang aktif.",
+    "🔒 Bot hidup. Siap menjaga transaksi Anda."
+]
 
 # Fungsi untuk ambil pesan random
 def get_random_pesan():
