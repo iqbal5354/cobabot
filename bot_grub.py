@@ -1,128 +1,95 @@
 import os
 import sys
-from dotenv import load_dotenv
 from telethon import TelegramClient, events
-from telethon.sessions import StringSession
-from telethon.tl.functions.messages import CreateChatRequest, ExportChatInviteRequest
-from telethon.tl.functions.channels import CreateChannelRequest
+from telethon.tl.functions.channels import CreateChannelRequest, ExportChatInviteRequest, UpdateUsernameRequest
+from telethon.tl.functions.messages import CreateChatRequest
+import asyncio
 
-# Load .env
-load_dotenv()
+# Ambil ENV
+API_ID = int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH")
+SESSION = os.getenv("SESSION")
 
-api_id = int(os.getenv("API_ID"))
-api_hash = os.getenv("API_HASH")
-string_session = os.getenv("SESSION")
-
-# OWNER_ID bisa kosong, aman
+# OWNER_ID opsional
 OWNER_ID = os.getenv("OWNER_ID")
 if OWNER_ID and OWNER_ID.isdigit():
     OWNER_ID = int(OWNER_ID)
 else:
     OWNER_ID = None
 
-client = TelegramClient(StringSession(string_session), api_id, api_hash)
+client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
 
-# =====================================================================
-# COMMAND .buat
-# =====================================================================
-@client.on(events.NewMessage(pattern=r"\.buat (b|g|c)(?: |$)(.*)"))
-async def handler(event):
-    tipe = event.pattern_match.group(1).strip()
-    teks = event.pattern_match.group(2).strip()
+# Notif saat bot berhasil jalan
+async def main():
+    if OWNER_ID:
+        try:
+            await client.send_message(OWNER_ID, "✅ Bot berhasil dijalankan dan siap dipakai.")
+        except Exception:
+            pass
 
-    await event.delete()  # hapus pesan perintah
+# Command .buat
+@client.on(events.NewMessage(pattern=r"\.buat (b|g|c) (\d+) (.+)"))
+async def handler_buat(event):
+    jenis = event.pattern_match.group(1)
+    jumlah = int(event.pattern_match.group(2))
+    nama = event.pattern_match.group(3)
 
-    jumlah = 1
-    nama = teks
+    # Hapus command user
+    await event.delete()
 
-    parts = teks.split(maxsplit=1)
-    if parts and parts[0].isdigit():
-        jumlah = int(parts[0])
-        nama = parts[1] if len(parts) > 1 else "Tanpa Nama"
-
-    # Kirim pesan awal "loading"
-    msg = await event.respond(f"⏳ Mohon tunggu sebentar...\nSedang membuat {jumlah} {'grup' if tipe=='g' else 'channel'}")
+    # Kirim pesan tunggu
+    msg = await event.respond("⏳ Mohon tunggu sebentar, sedang membuat group...")
 
     try:
         hasil = []
         for i in range(1, jumlah + 1):
-            judul = f"{nama} {i}" if jumlah > 1 else nama
+            nama_group = f"{nama} {i}" if jumlah > 1 else nama
 
-            if tipe == "b":
-                result = await client(CreateChatRequest(users=[], title=judul))
-                chat_id = result.chats[0].id
-                link = (await client(ExportChatInviteRequest(chat_id))).link
-                hasil.append(f"✅ Grup **{judul}** → {link}")
-
-            elif tipe in ["g", "c"]:
-                result = await client(
-                    CreateChannelRequest(
-                        title=judul,
-                        about="Dibuat otomatis oleh userbot",
-                        megagroup=(tipe == "g"),
+            if jenis == "b":
+                r = await client(
+                    CreateChatRequest(
+                        users=[await client.get_me()],
+                        title=nama_group,
                     )
                 )
-                chat_id = result.chats[0].id
+                chat_id = r.chats[0].id
+                link = (await client(ExportChatInviteRequest(chat_id))).link
+            else:
+                r = await client(
+                    CreateChannelRequest(
+                        title=nama_group,
+                        about="Grup/Channel otomatis dibuat oleh bot",
+                        megagroup=(jenis == "g"),
+                    )
+                )
+                chat_id = r.chats[0].id
                 link = (await client(ExportChatInviteRequest(chat_id))).link
 
-                tipe_str = "Supergroup" if tipe == "g" else "Channel"
-                hasil.append(f"✅ {tipe_str} **{judul}** → {link}")
+            hasil.append(f"✅ [{nama_group}]({link})")
 
-        # Edit pesan jadi hasil akhir
-        await msg.edit("\n".join(hasil), link_preview=False)
+        await msg.edit("🎉 Grup/Channel berhasil dibuat:\n\n" + "\n".join(hasil), link_preview=False)
 
     except Exception as e:
-        await msg.edit(f"❌ Error: `{e}`")
+        await msg.edit(f"❌ Error: {str(e)}")
 
-
-# =====================================================================
-# COMMAND .id
-# =====================================================================
+# Command .id
 @client.on(events.NewMessage(pattern=r"\.id"))
-async def get_id(event):
-    try:
-        await event.delete()  # hapus pesan perintah
+async def handler_id(event):
+    await event.delete()
+    chat = await event.get_chat()
+    await event.respond(f"🆔 Chat ID: `{chat.id}`")
 
-        if event.is_group or event.is_channel:
-            chat = await event.get_chat()
-            chat_id = chat.id
-
-            # konsisten: supergroup/channel pakai -100 prefix
-            if not str(chat_id).startswith("-100") and event.is_channel:
-                chat_id = f"-100{chat_id}"
-
-            await event.respond(f"🆔 Chat ID: `{chat_id}`")
-
-        elif event.is_private:
-            user = await event.get_sender()
-            await event.respond(f"🆔 User ID: `{user.id}`")
-
-    except Exception as e:
-        await event.respond(f"❌ Error: `{e}`")
-
-# =====================================================================
-# COMMAND .restart
-# =====================================================================
+# Command .restart
 @client.on(events.NewMessage(pattern=r"\.restart"))
-async def restart_bot(event):
-    await event.delete()  # hapus pesan perintah
-    await event.respond("♻️ Restarting bot...")
-    python = sys.executable
-    os.execl(python, python, __file__)
+async def handler_restart(event):
+    await event.delete()
+    await event.respond("♻️ Bot sedang restart...")
 
-# =====================================================================
-# MAIN PROGRAM
-# =====================================================================
-async def main():
-    await client.start()
-    if owner_id:
-        try:
-            await client.send_message(owner_id, "✅ Bot berhasil dijalankan dan siap menerima perintah.")
-        except Exception as e:
-            print(f"Gagal kirim notif ke owner: {e}")
-    print("🚀 Userbot berjalan... kirim perintah di Telegram")
-    await client.run_until_disconnected()
+    args = [sys.executable] + sys.argv
+    os.execv(sys.executable, args)
+
 
 if __name__ == "__main__":
     with client:
         client.loop.run_until_complete(main())
+        client.run_until_disconnected()
