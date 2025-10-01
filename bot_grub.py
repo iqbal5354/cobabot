@@ -1,9 +1,11 @@
 import os
 import sys
 import re
+import asyncio
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
 from telethon.tl.functions.channels import CreateChannelRequest
+from telethon.tl.functions.messages import ExportChatInviteRequest
 
 # 🔹 Ambil ENV
 API_ID = int(os.getenv("API_ID"))
@@ -17,11 +19,10 @@ if OWNER_ID and OWNER_ID.isdigit():
 else:
     OWNER_ID = None
 
-# 🔹 Init client pakai StringSession
+# 🔹 Client
 client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
 
-
-# 🔹 Pesan otomatis untuk grup baru
+# === Pesan otomatis ===
 pesan1 = """FORMAT TRANSAKSI
 
 ┏━━━━━━━━━━━━━━━━
@@ -59,35 +60,20 @@ pesan3 = """:: Uang sudah masuk di saya. Silahkan kalian serah terima data ::
 ⚠️jika Pembeli tidak ada kabar selama 8 jam maka dana akan di cairkan dan jika penjual tidak ada kabar selama 5 jam uang di transfer balik ke pembeli
 ━━━━━━━━━━━━━"""
 
+# === COMMAND ===
 
-# 🔹 Command .id → cek chat id
-@client.on(events.NewMessage(pattern=r"\.id"))
-async def handler_id(event):
-    chat = await event.get_chat()
-    await event.delete()
-
-    chat_id = chat.id
-    if not str(chat_id).startswith("-100") and (event.is_group or event.is_channel):
-        chat_id = f"-100{abs(chat_id)}"
-
-    msg = await event.respond("🔍 Mencari ID chat...")
-    await msg.edit(f"🆔 Chat ID: `{chat_id}`")
-
-
-# 🔹 Command .restart → restart bot
-@client.on(events.NewMessage(pattern=r"\.restart"))
-async def handler_restart(event):
-    if OWNER_ID and event.sender_id != OWNER_ID:
-        return
-    await event.delete()
-    await event.respond("♻️ Bot sedang restart...")
-    os.execv(sys.executable, [sys.executable] + sys.argv)
+# 🔹 Notif saat bot berhasil jalan
+async def main():
+    print("🤖 Bot berjalan...")
+    if OWNER_ID:
+        try:
+            await client.send_message(OWNER_ID, "✅ Bot berhasil dijalankan dan siap dipakai.")
+        except Exception:
+            pass
+    await client.run_until_disconnected()
 
 
 # 🔹 Command .buat g → buat grup otomatis
-# 🔹 Command .buat g → buat grup otomatis
-
-# 🔹 Command .buat g → bisa pakai angka atau langsung nama (default 1)
 @client.on(events.NewMessage(pattern=r"\.buat g(?: (\d+))? (.+)"))
 async def handler_buat(event):
     if OWNER_ID and event.sender_id != OWNER_ID:
@@ -95,7 +81,6 @@ async def handler_buat(event):
 
     await event.delete()
 
-    # parsing input
     match = re.match(r"\.buat g(?: (\d+))? (.+)", event.raw_text)
     jumlah = int(match.group(1)) if match.group(1) else 1
     nama = match.group(2)
@@ -114,7 +99,8 @@ async def handler_buat(event):
 
         # bikin link undangan
         try:
-            link = await client.export_chat_invite_link(chat_id)
+            result = await client(ExportChatInviteRequest(peer=chat_id))
+            link = result.link
         except Exception as e:
             link = f"(gagal ambil link: {e})"
 
@@ -124,25 +110,35 @@ async def handler_buat(event):
         await client.send_message(chat_id, pesan2)
         await client.send_message(chat_id, pesan3)
 
-        # hasil akhir pakai nama + link
         hasil.append(f"✅ [{nama_group}]({link})")
 
     await msg.edit("🎉 Grup berhasil dibuat:\n\n" + "\n".join(hasil), link_preview=False)
 
-# 🔹 Notif saat bot berhasil jalan
-async def main():
-    print("🤖 Bot berjalan...")
-    if OWNER_ID:
-        try:
-            await client.send_message(OWNER_ID, "✅ Bot berhasil dijalankan dan siap dipakai.")
-        except Exception:
-            pass
-    await client.run_until_disconnected()
+
+# 🔹 Command .id
+@client.on(events.NewMessage(pattern=r"\.id"))
+async def handler_id(event):
+    chat = await event.get_chat()
+    await event.delete()
+
+    chat_id = chat.id
+    if not str(chat_id).startswith("-100") and (event.is_group or event.is_channel):
+        chat_id = f"-100{abs(chat_id)}"
+
+    msg = await event.respond("🔍 Mencari ID chat...")
+    await msg.edit(f"🆔 Chat ID: `{chat_id}`")
 
 
+# 🔹 Command .restart
+@client.on(events.NewMessage(pattern=r"\.restart"))
+async def handler_restart(event):
+    await event.delete()
+    await event.respond("♻️ Bot sedang restart...")
+    args = [sys.executable] + sys.argv
+    os.execv(sys.executable, args)
+
+
+# === RUN ===
 if __name__ == "__main__":
     with client:
         client.loop.run_until_complete(main())
-
-
-
