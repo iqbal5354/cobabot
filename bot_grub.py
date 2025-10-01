@@ -74,16 +74,70 @@ async def handler_buat(event):
         await msg.edit(f"❌ Error: {str(e)}")
 
 # 🔹 Command .id
-@client.on(events.NewMessage(pattern=r"\.id"))
-async def get_id(event):
+# 🔹 Command .buat
+@client.on(events.NewMessage(pattern=r"\.buatt (b|g|c) (\d+) (.+)"))
+async def handler_buat(event):
+    jenis = event.pattern_match.group(1)
+    jumlah = int(event.pattern_match.group(2))
+    nama = event.pattern_match.group(3)
+
+    # Hapus command user
+    await event.delete()
+
+    # Kirim pesan tunggu
+    msg = await event.respond("⏳ Mohon tunggu sebentar, sedang membuat group...")
+
     try:
-        chat = await event.get_chat()
-        if event.is_group or event.is_channel:
-            await event.reply(f"🆔 Chat ID: `{chat.id}`")
-        else:
-            await event.reply(f"🆔 User ID: `{chat.id}`")
+        hasil = []
+        for i in range(1, jumlah + 1):
+            nama_group = f"{nama} {i}" if jumlah > 1 else nama
+
+            if jenis == "b":
+                r = await client(
+                    CreateChatRequest(
+                        users=[await client.get_me()],
+                        title=nama_group,
+                    )
+                )
+                chat_id = r.chats[0].id
+                link = (await client(ExportChatInviteRequest(chat_id))).link
+            else:
+                r = await client(
+                    CreateChannelRequest(
+                        title=nama_group,
+                        about="Grup/Channel otomatis dibuat oleh bot",
+                        megagroup=(jenis == "g"),
+                    )
+                )
+                chat_id = r.chats[0].id
+                link = (await client(ExportChatInviteRequest(chat_id))).link
+
+            # kirim pesan ke grup yang baru dibuat
+            await client.send_message(chat_id, "👋 Hallo, grup berhasil dibuat!")
+
+            hasil.append(f"✅ [{nama_group}]({link})")
+
+        await msg.edit("🎉 Grup/Channel berhasil dibuat:\n\n" + "\n".join(hasil), link_preview=False)
+
     except Exception as e:
-        await event.reply(f"❌ Error: `{e}`")
+        await msg.edit(f"❌ Error: {str(e)}")
+
+# 🔹 Command .id
+@client.on(events.NewMessage(pattern=r"\.id"))
+async def handler_id(event):
+    chat = await event.get_chat()
+
+    # hapus command user
+    await event.delete()
+
+    # paksa format -100 untuk group / channel
+    chat_id = chat.id
+    if not str(chat_id).startswith("-100") and (event.is_group or event.is_channel):
+        chat_id = f"-100{abs(chat_id)}"
+
+    # bikin pesan dummy lalu edit jadi hasil
+    msg = await event.respond("🔍 Mencari ID chat...")
+    await msg.edit(f"🆔 Chat ID: `{chat_id}`")
 
 
 # 🔹 Command .restart
@@ -100,4 +154,5 @@ if __name__ == "__main__":
     with client:
         client.loop.run_until_complete(main())
         client.run_until_disconnected()
+
 
