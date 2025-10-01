@@ -75,10 +75,16 @@ async def handler_buat(event):
 
 # 🔹 Command .id
 @client.on(events.NewMessage(pattern=r"\.id"))
-async def handler_id(event):
-    await event.delete()
-    chat = await event.get_chat()
-    await event.respond(f"🆔 Chat ID: `{chat.id}`")
+async def get_id(event):
+    try:
+        chat = await event.get_chat()
+        if event.is_group or event.is_channel:
+            await event.reply(f"🆔 Chat ID: `{chat.id}`")
+        else:
+            await event.reply(f"🆔 User ID: `{chat.id}`")
+    except Exception as e:
+        await event.reply(f"❌ Error: `{e}`")
+
 
 # 🔹 Command .restart
 @client.on(events.NewMessage(pattern=r"\.restart"))
@@ -94,3 +100,4 @@ if __name__ == "__main__":
     with client:
         client.loop.run_until_complete(main())
         client.run_until_disconnected()
+
