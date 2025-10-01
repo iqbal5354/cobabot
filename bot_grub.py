@@ -2,6 +2,7 @@ import os
 import sys
 import re
 import asyncio
+import time
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
 from telethon.tl.functions.channels import CreateChannelRequest
@@ -19,10 +20,9 @@ if OWNER_ID and OWNER_ID.isdigit():
 else:
     OWNER_ID = None
 
-# 🔹 Client
 client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
 
-# === Pesan otomatis ===
+# 🔹 Pesan otomatis
 pesan1 = """FORMAT TRANSAKSI
 
 ┏━━━━━━━━━━━━━━━━
@@ -60,61 +60,6 @@ pesan3 = """:: Uang sudah masuk di saya. Silahkan kalian serah terima data ::
 ⚠️jika Pembeli tidak ada kabar selama 8 jam maka dana akan di cairkan dan jika penjual tidak ada kabar selama 5 jam uang di transfer balik ke pembeli
 ━━━━━━━━━━━━━"""
 
-# === COMMAND ===
-
-# 🔹 Notif saat bot berhasil jalan
-async def main():
-    print("🤖 Bot berjalan...")
-    if OWNER_ID:
-        try:
-            await client.send_message(OWNER_ID, "✅ Bot berhasil dijalankan dan siap dipakai.")
-        except Exception:
-            pass
-    await client.run_until_disconnected()
-
-
-# 🔹 Command .buat g → buat grup otomatis
-@client.on(events.NewMessage(pattern=r"\.buat g(?: (\d+))? (.+)"))
-async def handler_buat(event):
-    if OWNER_ID and event.sender_id != OWNER_ID:
-        return
-
-    await event.delete()
-
-    match = re.match(r"\.buat g(?: (\d+))? (.+)", event.raw_text)
-    jumlah = int(match.group(1)) if match.group(1) else 1
-    nama = match.group(2)
-
-    msg = await event.respond("⏳ Mohon tunggu sebentar, sedang membuat grup...")
-
-    hasil = []
-    for i in range(jumlah):
-        nama_group = f"{nama} {i+1}" if jumlah > 1 else nama
-        grup = await client(CreateChannelRequest(
-            title=nama_group,
-            about="GRUB BY @WARUNGBULLOVE",
-            megagroup=True
-        ))
-        chat_id = grup.chats[0].id
-
-        # bikin link undangan
-        try:
-            result = await client(ExportChatInviteRequest(peer=chat_id))
-            link = result.link
-        except Exception as e:
-            link = f"(gagal ambil link: {e})"
-
-        # kirim pesan otomatis
-        await client.send_message(chat_id, "👋 Hallo, grup berhasil dibuat!")
-        await client.send_message(chat_id, pesan1)
-        await client.send_message(chat_id, pesan2)
-        await client.send_message(chat_id, pesan3)
-
-        hasil.append(f"✅ [{nama_group}]({link})")
-
-    await msg.edit("🎉 Grup berhasil dibuat:\n\n" + "\n".join(hasil), link_preview=False)
-
-
 # 🔹 Command .id
 @client.on(events.NewMessage(pattern=r"\.id"))
 async def handler_id(event):
@@ -128,6 +73,68 @@ async def handler_id(event):
     msg = await event.respond("🔍 Mencari ID chat...")
     await msg.edit(f"🆔 Chat ID: `{chat_id}`")
 
+# 🔹 Command .buat g → buat grup otomatis
+@client.on(events.NewMessage(pattern=r"\.buat g(?: (\d+))? (.+)"))
+async def handler_buat(event):
+    if OWNER_ID and event.sender_id != OWNER_ID:
+        return
+
+    await event.delete()
+
+    match = re.match(r"\.buat g(?: (\d+))? (.+)", event.raw_text)
+    jumlah = int(match.group(1)) if match.group(1) else 1
+    nama = match.group(2)
+
+    msg = await event.respond("⏳ Membuat grup .")
+
+    animasi = [".", "..", "...", "...."]
+    hasil = []
+    start_time = time.time()
+
+    for i in range(jumlah):
+        # progress bar
+        total_bar = 10
+        filled = int((i+1) / jumlah * total_bar)
+        bar = "▓" * filled + "░" * (total_bar - filled)
+
+        # estimasi waktu sisa
+        elapsed = time.time() - start_time
+        avg_per_item = elapsed / (i+1)
+        remaining = int(avg_per_item * (jumlah - (i+1)))
+
+        await msg.edit(
+            f"⏳ Membuat grup {animasi[i % len(animasi)]}\n"
+            f"[{bar}] {i+1}/{jumlah}\n"
+            f"Estimasi: {remaining} detik lagi"
+        )
+        await asyncio.sleep(0.5)
+
+        # buat grup
+        nama_group = f"{nama} {i+1}" if jumlah > 1 else nama
+        grup = await client(CreateChannelRequest(
+            title=nama_group,
+            about="GRUB BY @WARUNGBULLOVE",
+            megagroup=True
+        ))
+        chat_id = grup.chats[0].id
+
+        # link undangan
+        try:
+            result = await client(ExportChatInviteRequest(peer=chat_id))
+            link = result.link
+        except Exception as e:
+            link = f"(gagal ambil link: {e})"
+
+        # pesan otomatis
+        await client.send_message(chat_id, "👋 Hallo, grup berhasil dibuat!")
+        await client.send_message(chat_id, pesan1)
+        await client.send_message(chat_id, pesan2)
+        await client.send_message(chat_id, pesan3)
+
+        hasil.append(f"✅ [{nama_group}]({link})")
+
+    # selesai
+    await msg.edit("🎉 Grup berhasil dibuat:\n\n" + "\n".join(hasil), link_preview=False)
 
 # 🔹 Command .restart
 @client.on(events.NewMessage(pattern=r"\.restart"))
@@ -137,8 +144,16 @@ async def handler_restart(event):
     args = [sys.executable] + sys.argv
     os.execv(sys.executable, args)
 
+# === MAIN ===
+async def main():
+    print("🤖 Bot berjalan...")
+    if OWNER_ID:
+        try:
+            await client.send_message(OWNER_ID, "✅ Bot berhasil dijalankan dan siap dipakai.")
+        except Exception:
+            pass
+    await client.run_until_disconnected()
 
-# === RUN ===
 if __name__ == "__main__":
     with client:
         client.loop.run_until_complete(main())
