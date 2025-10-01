@@ -84,39 +84,41 @@ async def handler_restart(event):
 
 
 # 🔹 Command .buat g → buat grup otomatis
-import re
-
-@client.on(events.NewMessage(pattern=r"\.buat g(?: (\d+))? (.+)"))
+# 🔹 Command .buat g → buat grup otomatis
+@client.on(events.NewMessage(pattern=r"\.buat g (\d+) (.+)"))
 async def handler_buat(event):
     if OWNER_ID and event.sender_id != OWNER_ID:
         return
 
+    jumlah = int(event.pattern_match.group(1))
+    nama = event.pattern_match.group(2)
+
     await event.delete()
-
-    match = re.match(r"\.buat g(?: (\d+))? (.+)", event.raw_text)
-    jumlah = int(match.group(1)) if match.group(1) else 1  # default 1
-    nama = match.group(2)
-
     msg = await event.respond("⏳ Mohon tunggu sebentar, sedang membuat grup...")
 
     hasil = []
     for i in range(jumlah):
-        nama_group = f"{nama} {i+1}" if jumlah > 1 else nama
         grup = await client(CreateChannelRequest(
-            title=nama_group,
+            title=f"{nama} {i+1}",
             about="GRUB BY @WARUNGBULLOVE",
             megagroup=True
         ))
         chat_id = grup.chats[0].id
-        link = (await client(ExportChatInviteRequest(chat_id))).link
 
-        # kirim pesan otomatis
+        # bikin link undangan
+        try:
+            link = await client.export_chat_invite_link(chat_id)
+        except Exception as e:
+            link = f"(gagal ambil link: {e})"
+
+        # kirim pesan otomatis ke grup
         await client.send_message(chat_id, "👋 Hallo, grup berhasil dibuat!")
         await client.send_message(chat_id, pesan1)
         await client.send_message(chat_id, pesan2)
         await client.send_message(chat_id, pesan3)
 
-        hasil.append(f"✅ [{nama_group}]({link})")
+        # tambahkan ke hasil, format nama + link
+        hasil.append(f"✅ [{nama} {i+1}]({link})")
 
     await msg.edit("🎉 Grup berhasil dibuat:\n\n" + "\n".join(hasil), link_preview=False)
 
@@ -134,4 +136,5 @@ async def main():
 if __name__ == "__main__":
     with client:
         client.loop.run_until_complete(main())
+
 
