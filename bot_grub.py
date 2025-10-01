@@ -12,7 +12,13 @@ load_dotenv()
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
 string_session = os.getenv("SESSION")
-owner_id = int(os.getenv("OWNER_ID", "0"))
+
+# OWNER_ID bisa kosong, aman
+OWNER_ID = os.getenv("OWNER_ID")
+if OWNER_ID and OWNER_ID.isdigit():
+    OWNER_ID = int(OWNER_ID)
+else:
+    OWNER_ID = None
 
 client = TelegramClient(StringSession(string_session), api_id, api_hash)
 
